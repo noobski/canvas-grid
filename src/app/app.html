@@ -1,0 +1,44 @@
+@if (viewing() && imageUrl(); as url) {
+  <app-viewer [settings]="settings()" [imageUrl]="url"
+              (openSettings)="drawer.set(true)" (close)="stop()" />
+
+  @if (drawer()) {
+    <div class="drawer-backdrop" (click)="drawer.set(false)"></div>
+    <aside class="drawer">
+      <header>
+        <h1>Settings</h1>
+        <button type="button" class="done" (click)="drawer.set(false)">Done</button>
+      </header>
+      <div class="drawer-body">
+        <app-settings-panel [(settings)]="settings"
+                            [imageUrl]="imageUrl()" [imageAspect]="imageAspect()"
+                            [imageSize]="imageSize()" [imageName]="imageName()"
+                            (filePicked)="onFile($event)" (clearImage)="removeImage(); stop()"
+                            (exportImage)="exportPng()" />
+      </div>
+    </aside>
+  }
+} @else {
+  <main class="setup">
+    <header class="hero">
+      <h1>Canvas Grid</h1>
+      <p>Put a grid over a reference photo and keep it on screen while you draw.</p>
+    </header>
+
+    <app-settings-panel [(settings)]="settings"
+                        [imageUrl]="imageUrl()" [imageAspect]="imageAspect()"
+                        [imageSize]="imageSize()" [imageName]="imageName()"
+                        (filePicked)="onFile($event)" (clearImage)="removeImage()"
+                        (exportImage)="exportPng()" />
+
+    <div class="start-bar">
+      <button type="button" class="start" (click)="start()" [disabled]="!imageUrl()">
+        {{ imageUrl() ? 'Show grid full screen' : 'Choose a photo to begin' }}
+      </button>
+      <p class="tips">
+        In the viewer: tap to hide/show controls · pinch to zoom · double-tap to zoom in/out ·
+        the screen stays awake until you leave.
+      </p>
+    </div>
+  </main>
+}
