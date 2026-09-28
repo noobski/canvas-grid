@@ -338,3 +338,60 @@ h2.with-toggle {
   color: var(--muted);
   margin-top: 6px;
 }
+
+.summary {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+.sum-row:first-child {
+  border-top: 0;
+}
+
+.sum-row b {
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.sum-row.main {
+  background: rgba(0, 122, 255, 0.12);
+}
+
+.sum-row.main b {
+  color: #5ac8fa;
+  font-size: 16px;
+}
+
+.sum-row.dim b {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.readout .dim {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.link {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  padding: 0 4px;
+  cursor: pointer;
+  text-decoration: underline;
+}

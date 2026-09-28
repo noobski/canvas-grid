@@ -1,89 +1,116 @@
 @let s = settings();
+@let l = layout();
 @let st = stage();
+@let p = pic();
 @let k = scale();
 @let sel = selectedCell();
+@let cropping = mode() === 'crop';
 
-<div class="surface"
+<div class="surface" [class.cropping]="cropping"
      (pointerdown)="onPointerDown($event)"
      (pointermove)="onPointerMove($event)"
      (pointerup)="onPointerUp($event)"
      (pointercancel)="onPointerUp($event)">
   <div class="zoom" [style.transform]="transform()">
-    <div class="stage"
+    <!-- the canvas (or just the picture area when margins are hidden) -->
+    <div class="stage" [class.paper]="marginsShown()"
          [style.left.px]="st.x" [style.top.px]="st.y"
          [style.width.px]="st.w" [style.height.px]="st.h">
-      <img class="photo" [src]="imageUrl()" alt=""
-           [style.object-fit]="s.fit"
-           [class.gray]="s.grayscale"
-           [style.transform]="imgTransform()" draggable="false" />
 
-      <svg class="grid" [attr.viewBox]="'0 0 ' + s.canvasW + ' ' + s.canvasH" preserveAspectRatio="none">
-        <!-- subdivision (under the main grid) -->
-        @if (s.subEnabled) {
-          <g [attr.stroke]="s.subColor" [attr.stroke-width]="s.subWidth / k" vector-effect="non-scaling-stroke">
-            @for (x of subV(); track $index) {
-              <line [attr.x1]="x" y1="0" [attr.x2]="x" [attr.y2]="s.canvasH" vector-effect="non-scaling-stroke" />
-            }
-            @for (y of subH(); track $index) {
-              <line x1="0" [attr.y1]="y" [attr.x2]="s.canvasW" [attr.y2]="y" vector-effect="non-scaling-stroke" />
-            }
-          </g>
-        }
-
-        <!-- diagonals -->
-        @if (s.diagonals) {
-          <g [attr.stroke]="s.mainColor" [attr.stroke-width]="Math.max(0.5, s.mainWidth * 0.6) / k" opacity="0.7">
-            @for (c of cells(); track c.label) {
-              <line [attr.x1]="c.x" [attr.y1]="c.y" [attr.x2]="c.x + c.w" [attr.y2]="c.y + c.h" vector-effect="non-scaling-stroke" />
-              <line [attr.x1]="c.x + c.w" [attr.y1]="c.y" [attr.x2]="c.x" [attr.y2]="c.y + c.h" vector-effect="non-scaling-stroke" />
-            }
-          </g>
-        }
-
-        <!-- main grid -->
-        <g [attr.stroke]="s.mainColor" [attr.stroke-width]="s.mainWidth / k" fill="none">
-          @for (x of mainV(); track $index) {
-            <line [attr.x1]="x" y1="0" [attr.x2]="x" [attr.y2]="s.canvasH" vector-effect="non-scaling-stroke" />
-          }
-          @for (y of mainH(); track $index) {
-            <line x1="0" [attr.y1]="y" [attr.x2]="s.canvasW" [attr.y2]="y" vector-effect="non-scaling-stroke" />
-          }
-          <rect x="0" y="0" [attr.width]="s.canvasW" [attr.height]="s.canvasH" vector-effect="non-scaling-stroke" />
-        </g>
-
-        <!-- focus: dim everything except the selected cell -->
-        @if (sel) {
-          @if (s.dimOthers) {
-            <path fill="rgba(0,0,0,0.72)" fill-rule="evenodd"
-                  [attr.d]="'M0 0H' + s.canvasW + 'V' + s.canvasH + 'H0Z' +
-                            'M' + sel.x + ' ' + sel.y + 'H' + (sel.x + sel.w) + 'V' + (sel.y + sel.h) + 'H' + sel.x + 'Z'" />
-          }
-          <rect [attr.x]="sel.x" [attr.y]="sel.y" [attr.width]="sel.w" [attr.height]="sel.h"
-                fill="none" stroke="#ffcc00" [attr.stroke-width]="3 / k" vector-effect="non-scaling-stroke" />
-        }
-      </svg>
-
-      @if (s.showLabels) {
-        <div class="labels">
-          @for (c of cells(); track c.label) {
-            <span [style.left.%]="(c.c / s.cols) * 100" [style.top.%]="(c.r / s.rows) * 100"
-                  [class.sel]="sel && sel.r === c.r && sel.c === c.c">{{ c.label }}</span>
-          }
+      <!-- picture area -->
+      <div class="pic" [style.left.px]="p.x" [style.top.px]="p.y" [style.width.px]="p.w" [style.height.px]="p.h">
+        <div class="photo-wrap" [style.transform]="flipTransform()">
+          <img class="photo" [src]="imageUrl()" alt=""
+               [style.object-fit]="s.fit"
+               [class.gray]="s.grayscale"
+               [style.transform]="cropTransform()" draggable="false" />
         </div>
+
+        <svg class="grid" [attr.viewBox]="'0 0 ' + l.picW + ' ' + l.picH" preserveAspectRatio="none">
+          <!-- subdivision (under the main grid) -->
+          @if (s.subEnabled) {
+            <g [attr.stroke]="s.subColor" [attr.stroke-width]="s.subWidth / k">
+              @for (x of subV(); track $index) {
+                <line [attr.x1]="x" y1="0" [attr.x2]="x" [attr.y2]="l.picH" vector-effect="non-scaling-stroke" />
+              }
+              @for (y of subH(); track $index) {
+                <line x1="0" [attr.y1]="y" [attr.x2]="l.picW" [attr.y2]="y" vector-effect="non-scaling-stroke" />
+              }
+            </g>
+          }
+
+          <!-- diagonals -->
+          @if (s.diagonals) {
+            <g [attr.stroke]="s.mainColor" [attr.stroke-width]="Math.max(0.5, s.mainWidth * 0.6) / k" opacity="0.7">
+              @for (c of cells(); track c.label) {
+                <line [attr.x1]="c.x" [attr.y1]="c.y" [attr.x2]="c.x + c.w" [attr.y2]="c.y + c.h" vector-effect="non-scaling-stroke" />
+                <line [attr.x1]="c.x + c.w" [attr.y1]="c.y" [attr.x2]="c.x" [attr.y2]="c.y + c.h" vector-effect="non-scaling-stroke" />
+              }
+            </g>
+          }
+
+          <!-- main grid -->
+          <g [attr.stroke]="s.mainColor" [attr.stroke-width]="s.mainWidth / k" fill="none">
+            @for (x of mainV(); track $index) {
+              <line [attr.x1]="x" y1="0" [attr.x2]="x" [attr.y2]="l.picH" vector-effect="non-scaling-stroke" />
+            }
+            @for (y of mainH(); track $index) {
+              <line x1="0" [attr.y1]="y" [attr.x2]="l.picW" [attr.y2]="y" vector-effect="non-scaling-stroke" />
+            }
+            <rect x="0" y="0" [attr.width]="l.picW" [attr.height]="l.picH" vector-effect="non-scaling-stroke" />
+          </g>
+
+          <!-- focused cell: dim the rest, split it, outline it -->
+          @if (sel) {
+            @if (s.dimOthers) {
+              <path fill="rgba(0,0,0,0.72)" fill-rule="evenodd"
+                    [attr.d]="'M0 0H' + l.picW + 'V' + l.picH + 'H0Z' +
+                              'M' + sel.x + ' ' + sel.y + 'H' + (sel.x + sel.w) + 'V' + (sel.y + sel.h) + 'H' + sel.x + 'Z'" />
+            }
+            <g [attr.stroke]="s.subColor" [attr.stroke-width]="s.subWidth / k">
+              @for (x of focusSubV(); track $index) {
+                <line [attr.x1]="x" [attr.y1]="sel.y" [attr.x2]="x" [attr.y2]="sel.y + sel.h" vector-effect="non-scaling-stroke" />
+              }
+              @for (y of focusSubH(); track $index) {
+                <line [attr.x1]="sel.x" [attr.y1]="y" [attr.x2]="sel.x + sel.w" [attr.y2]="y" vector-effect="non-scaling-stroke" />
+              }
+            </g>
+            <rect [attr.x]="sel.x" [attr.y]="sel.y" [attr.width]="sel.w" [attr.height]="sel.h"
+                  fill="none" stroke="#ffcc00" [attr.stroke-width]="3 / k" vector-effect="non-scaling-stroke" />
+          }
+        </svg>
+
+        @if (s.showLabels && !sel) {
+          <div class="labels">
+            @for (c of cells(); track c.label) {
+              <span [style.left.%]="(c.c / s.cols) * 100" [style.top.%]="(c.r / s.rows) * 100">{{ c.label }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      @if (marginsShown()) {
+        <div class="pic-outline" [style.left.px]="p.x" [style.top.px]="p.y" [style.width.px]="p.w" [style.height.px]="p.h"></div>
       }
     </div>
   </div>
 </div>
 
-<!-- always-visible cell size chip -->
+<!-- always-visible size chip -->
 @if (s.showDims) {
   <div class="chip dims" [class.lift]="chrome()">
     @if (sel) {
       <b>{{ sel.label }}</b> ·
-    }
-    <b>{{ fmt(cellW()) }} × {{ fmt(cellH()) }} {{ s.unit }}</b>
-    @if (s.subEnabled) {
-      <span class="sub" [style.color]="s.subColor">· sub {{ fmt(subCellW()) }} × {{ fmt(subCellH()) }}</span>
+      <b>{{ fmt(l.cellW) }} × {{ fmt(l.cellH) }} {{ s.unit }}</b>
+      <span class="sub" [style.color]="s.subColor">· split {{ s.subFactor }}×{{ s.subFactor }}: {{ fmt(l.subW) }} × {{ fmt(l.subH) }}</span>
+    } @else {
+      cell <b>{{ fmt(l.cellW) }} × {{ fmt(l.cellH) }} {{ s.unit }}</b>
+      @if (s.subEnabled) {
+        <span class="sub" [style.color]="s.subColor">· sub {{ fmt(l.subW) }} × {{ fmt(l.subH) }}</span>
+      }
+      @if (hasMargins()) {
+        <span class="sub">· picture {{ fmt(l.picW) }} × {{ fmt(l.picH) }}</span>
+      }
     }
   </div>
 }
@@ -102,14 +129,23 @@
 </div>
 
 <div class="chrome bottom" [class.hidden]="!chrome()">
-  <button type="button" class="pill" (click)="toggleFullscreen()">
-    {{ isFullscreen() ? 'Exit full screen' : 'Full screen' }}
-  </button>
-  <button type="button" class="pill" [class.on]="focusMode()" (click)="toggleFocus()">
-    Focus cell
-  </button>
-  @if (k > 1) {
-    <button type="button" class="pill" (click)="resetZoom()">Reset zoom</button>
+  @if (sel) {
+    <button type="button" class="pill" (click)="stepCell(-1)" aria-label="Previous cell">‹</button>
+    <span class="pill static">{{ sel.label }}</span>
+    <button type="button" class="pill" (click)="stepCell(1)" aria-label="Next cell">›</button>
+    <button type="button" class="pill on" (click)="exitFocus()">Exit focus</button>
+  } @else if (cropping) {
+    <button type="button" class="pill on" (click)="toggleCrop()">Done cropping</button>
+    <button type="button" class="pill" (click)="resetCrop()">Reset crop</button>
+  } @else {
+    <button type="button" class="pill" (click)="toggleFullscreen()">
+      {{ isFullscreen() ? 'Exit full screen' : 'Full screen' }}
+    </button>
+    <button type="button" class="pill" [class.on]="focusMode()" (click)="toggleFocus()">Focus cell</button>
+    <button type="button" class="pill" (click)="toggleCrop()">Crop</button>
+    @if (k > 1) {
+      <button type="button" class="pill" (click)="resetZoom()">Reset zoom</button>
+    }
   }
   <span class="grow"></span>
   <span class="wake" [class.ok]="wake.active()" [title]="wake.method()">

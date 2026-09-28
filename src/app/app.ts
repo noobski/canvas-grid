@@ -3,7 +3,7 @@ import { SettingsPanel } from './settings-panel/settings-panel';
 import { Viewer } from './viewer/viewer';
 import { StorageService } from './storage.service';
 import { WakeLockService } from './wake-lock.service';
-import { Settings } from './models';
+import { fmt, layoutOf, Settings } from './models';
 
 @Component({
   selector: 'app-root',
@@ -84,81 +84,76 @@ export class App {
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   }
 
-  /** Render photo + grid at full resolution and download as PNG. */
+  /** Render canvas (margins + photo + crop + grid) at full resolution and download as PNG. */
   async exportPng(): Promise<void> {
     const url = this.imageUrl();
     const size = this.imageSize();
     if (!url || !size) return;
     const s = this.settings();
+    const l = layoutOf(s);
     const img = new Image();
     img.src = url;
     await img.decode();
 
-    // Output canvas has the drawing canvas's aspect ratio, sized from the photo.
-    const a = s.canvasW / s.canvasH;
-    let outW: number;
-    let outH: number;
-    if (s.fit === 'cover') {
-      // as many photo pixels as fit inside the canvas aspect
-      if (size.w / size.h > a) {
-        outH = size.h;
-        outW = Math.round(size.h * a);
-      } else {
-        outW = size.w;
-        outH = Math.round(size.w / a);
-      }
-    } else {
-      if (size.w / size.h > a) {
-        outW = size.w;
-        outH = Math.round(size.w / a);
-      } else {
-        outH = size.h;
-        outW = Math.round(size.h * a);
-      }
-    }
+    // pixels per canvas unit: enough that the picture area uses the photo's full resolution
+    const baseFit = s.fit === 'cover' ? Math.max(size.w / l.picW, size.h / l.picH) : Math.min(size.w / l.picW, size.h / l.picH);
+    const ppu = Math.min(baseFit * s.cropScale, 12000 / Math.max(s.canvasW, s.canvasH));
+    const withMargins = s.showMargins && s.marginTop + s.marginRight + s.marginBottom + s.marginLeft > 0;
+    const outW = Math.round((withMargins ? s.canvasW : l.picW) * ppu);
+    const outH = Math.round((withMargins ? s.canvasH : l.picH) * ppu);
+    const px = { x: withMargins ? l.x * ppu : 0, y: withMargins ? l.y * ppu : 0, w: l.picW * ppu, h: l.picH * ppu };
+
     const cv = document.createElement('canvas');
     cv.width = outW;
     cv.height = outH;
     const ctx = cv.getContext('2d')!;
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = withMargins ? '#d8d3c6' : '#111';
     ctx.fillRect(0, 0, outW, outH);
 
-    // draw photo (cover/contain), with mirroring and grayscale
-    const scale = s.fit === 'cover' ? Math.max(outW / size.w, outH / size.h) : Math.min(outW / size.w, outH / size.h);
-    const dw = size.w * scale;
-    const dh = size.h * scale;
+    // photo, clipped to the picture area, with crop + mirroring + grayscale
     ctx.save();
-    ctx.translate(outW / 2, outH / 2);
+    ctx.beginPath();
+    ctx.rect(px.x, px.y, px.w, px.h);
+    ctx.clip();
+    ctx.fillStyle = '#111';
+    ctx.fillRect(px.x, px.y, px.w, px.h);
+    const base = s.fit === 'cover' ? Math.max(px.w / size.w, px.h / size.h) : Math.min(px.w / size.w, px.h / size.h);
+    const dw = size.w * base * s.cropScale;
+    const dh = size.h * base * s.cropScale;
+    ctx.translate(px.x + px.w / 2, px.y + px.h / 2);
     ctx.scale(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
+    ctx.translate(s.cropX * px.w, s.cropY * px.h);
     if (s.grayscale) ctx.filter = 'grayscale(1)';
     ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
     ctx.restore();
 
     // grid — line widths scaled so they look like they do on screen at ~1000px wide
-    const px = outW / 1000;
-    const cellW = outW / s.cols;
-    const cellH = outH / s.rows;
+    const lw = px.w / 1000;
+    const cellW = px.w / s.cols;
+    const cellH = px.h / s.rows;
+    ctx.save();
+    ctx.translate(px.x, px.y);
     if (s.subEnabled) {
       ctx.strokeStyle = s.subColor;
-      ctx.lineWidth = Math.max(1, s.subWidth * px);
+      ctx.lineWidth = Math.max(1, s.subWidth * lw);
       ctx.beginPath();
       for (let i = 1; i < s.cols * s.subFactor; i++) {
         if (i % s.subFactor === 0) continue;
         const x = (i * cellW) / s.subFactor;
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, outH);
+        ctx.lineTo(x, px.h);
       }
       for (let i = 1; i < s.rows * s.subFactor; i++) {
         if (i % s.subFactor === 0) continue;
         const y = (i * cellH) / s.subFactor;
         ctx.moveTo(0, y);
-        ctx.lineTo(outW, y);
+        ctx.lineTo(px.w, y);
       }
       ctx.stroke();
     }
     ctx.strokeStyle = s.mainColor;
     if (s.diagonals) {
-      ctx.lineWidth = Math.max(1, s.mainWidth * 0.6 * px);
+      ctx.lineWidth = Math.max(1, s.mainWidth * 0.6 * lw);
       ctx.globalAlpha = 0.7;
       ctx.beginPath();
       for (let r = 0; r < s.rows; r++) {
@@ -172,34 +167,47 @@ export class App {
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    ctx.lineWidth = Math.max(1, s.mainWidth * px);
+    ctx.lineWidth = Math.max(1, s.mainWidth * lw);
     ctx.beginPath();
     for (let i = 1; i < s.cols; i++) {
       ctx.moveTo(i * cellW, 0);
-      ctx.lineTo(i * cellW, outH);
+      ctx.lineTo(i * cellW, px.h);
     }
     for (let i = 1; i < s.rows; i++) {
       ctx.moveTo(0, i * cellH);
-      ctx.lineTo(outW, i * cellH);
+      ctx.lineTo(px.w, i * cellH);
     }
     ctx.stroke();
-    ctx.strokeRect(0, 0, outW, outH);
+    ctx.strokeRect(0, 0, px.w, px.h);
 
     if (s.showLabels) {
-      ctx.font = `${Math.round(18 * px)}px system-ui, sans-serif`;
+      ctx.font = `${Math.round(18 * lw)}px system-ui, sans-serif`;
       ctx.textBaseline = 'top';
       for (let r = 0; r < s.rows; r++) {
         for (let c = 0; c < s.cols; c++) {
           const label = `${String.fromCharCode(65 + (c % 26))}${r + 1}`;
           const tw = ctx.measureText(label).width;
-          const x = c * cellW + 6 * px;
-          const y = r * cellH + 6 * px;
+          const x = c * cellW + 6 * lw;
+          const y = r * cellH + 6 * lw;
           ctx.fillStyle = 'rgba(0,0,0,0.55)';
-          ctx.fillRect(x - 3 * px, y - 2 * px, tw + 6 * px, 22 * px);
+          ctx.fillRect(x - 3 * lw, y - 2 * lw, tw + 6 * lw, 22 * lw);
           ctx.fillStyle = '#fff';
           ctx.fillText(label, x, y);
         }
       }
+    }
+    ctx.restore();
+
+    // a small caption with the real sizes, in the bottom margin if there is one
+    if (withMargins && s.marginBottom * ppu > 24 * lw) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.font = `${Math.round(14 * lw)}px system-ui, sans-serif`;
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(
+        `canvas ${fmt(s.canvasW)} × ${fmt(s.canvasH)} ${s.unit} · picture ${fmt(l.picW)} × ${fmt(l.picH)} · cell ${fmt(l.cellW)} × ${fmt(l.cellH)}`,
+        px.x,
+        outH - 6 * lw,
+      );
     }
 
     const blob: Blob | null = await new Promise((res) => cv.toBlob(res, 'image/png'));

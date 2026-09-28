@@ -1,5 +1,5 @@
 @if (viewing() && imageUrl(); as url) {
-  <app-viewer [settings]="settings()" [imageUrl]="url"
+  <app-viewer [(settings)]="settings" [imageUrl]="url" [imageSize]="imageSize()"
               (openSettings)="drawer.set(true)" (close)="stop()" />
 
   @if (drawer()) {

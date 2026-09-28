@@ -1,4 +1,5 @@
 @let s = settings();
+@let l = layout();
 
 <section class="card">
   <h2>Reference photo</h2>
@@ -24,39 +25,107 @@
 </section>
 
 <section class="card">
-  <h2>Canvas size</h2>
+  <h2>Canvas</h2>
   <div class="row">
     <label class="field">
       <span>Width</span>
-      <input type="number" inputmode="decimal" min="1" step="0.5" [ngModel]="s.canvasW"
-             (ngModelChange)="num('canvasW', $event, 0.1, 10000)" />
+      <input type="number" inputmode="decimal" min="1" step="0.5" [value]="s.canvasW"
+             (input)="onNum('canvasW', $event, 0.1, 10000)" (blur)="onBlur('canvasW', $event)" />
     </label>
     <span class="times">×</span>
     <label class="field">
       <span>Height</span>
-      <input type="number" inputmode="decimal" min="1" step="0.5" [ngModel]="s.canvasH"
-             (ngModelChange)="num('canvasH', $event, 0.1, 10000)" />
+      <input type="number" inputmode="decimal" min="1" step="0.5" [value]="s.canvasH"
+             (input)="onNum('canvasH', $event, 0.1, 10000)" (blur)="onBlur('canvasH', $event)" />
     </label>
     <div class="seg">
       <button type="button" [class.on]="s.unit === 'cm'" (click)="setUnit('cm')">cm</button>
       <button type="button" [class.on]="s.unit === 'in'" (click)="setUnit('in')">in</button>
     </div>
   </div>
+
+  <div class="row">
+    @if (!perSide()) {
+      <label class="field">
+        <span>Margin (all sides)</span>
+        <input type="number" inputmode="decimal" min="0" step="0.5" [value]="s.marginTop"
+               (input)="setAllMargins($event)" (blur)="onMarginBlur($event)" />
+      </label>
+    } @else {
+      <label class="field">
+        <span>Top</span>
+        <input type="number" inputmode="decimal" min="0" step="0.5" [value]="s.marginTop"
+               (input)="onNum('marginTop', $event, 0, 10000)" (blur)="onBlur('marginTop', $event)" />
+      </label>
+      <label class="field">
+        <span>Bottom</span>
+        <input type="number" inputmode="decimal" min="0" step="0.5" [value]="s.marginBottom"
+               (input)="onNum('marginBottom', $event, 0, 10000)" (blur)="onBlur('marginBottom', $event)" />
+      </label>
+      <label class="field">
+        <span>Left</span>
+        <input type="number" inputmode="decimal" min="0" step="0.5" [value]="s.marginLeft"
+               (input)="onNum('marginLeft', $event, 0, 10000)" (blur)="onBlur('marginLeft', $event)" />
+      </label>
+      <label class="field">
+        <span>Right</span>
+        <input type="number" inputmode="decimal" min="0" step="0.5" [value]="s.marginRight"
+               (input)="onNum('marginRight', $event, 0, 10000)" (blur)="onBlur('marginRight', $event)" />
+      </label>
+    }
+  </div>
   <div class="row wrap">
+    <button type="button" class="btn small" (click)="togglePerSide()">
+      {{ perSide() ? 'Same margin on all sides' : 'Different margin per side' }}
+    </button>
     <button type="button" class="btn small" (click)="matchPhoto()" [disabled]="!imageAspect()">
       Match photo proportions
     </button>
     <button type="button" class="btn small" (click)="swap()">Swap W ↔ H</button>
   </div>
+
+  <div class="summary">
+    <div class="sum-row">
+      <span>Canvas</span>
+      <b>{{ fmt(s.canvasW) }} × {{ fmt(s.canvasH) }} {{ s.unit }}</b>
+    </div>
+    <div class="sum-row">
+      <span>Picture area{{ hasMargins() ? ' (inside margins)' : '' }}</span>
+      <b>{{ fmt(l.picW) }} × {{ fmt(l.picH) }} {{ s.unit }}</b>
+    </div>
+    <div class="sum-row main">
+      <span>Each main cell ({{ s.cols }} × {{ s.rows }})</span>
+      <b>{{ fmt(l.cellW) }} × {{ fmt(l.cellH) }} {{ s.unit }}</b>
+    </div>
+    @if (s.subEnabled) {
+      <div class="sum-row">
+        <span>Each sub-cell ({{ s.cols * s.subFactor }} × {{ s.rows * s.subFactor }})</span>
+        <b>{{ fmt(l.subW) }} × {{ fmt(l.subH) }} {{ s.unit }}</b>
+      </div>
+    }
+    @if (pxPerUnit(); as ppu) {
+      <div class="sum-row dim">
+        <span>Photo scale</span>
+        <b>1 {{ s.unit }} ≈ {{ fmt(ppu) }} px</b>
+      </div>
+    }
+  </div>
+</section>
+
+<section class="card">
+  <h2>Photo placement</h2>
   <div class="row wrap">
     <div class="seg">
-      <button type="button" [class.on]="s.fit === 'cover'" (click)="patch('fit', 'cover')">Crop photo to canvas</button>
+      <button type="button" [class.on]="s.fit === 'cover'" (click)="patch('fit', 'cover')">Fill picture area</button>
       <button type="button" [class.on]="s.fit === 'contain'" (click)="patch('fit', 'contain')">Fit whole photo</button>
     </div>
   </div>
-  @if (pxPerUnit(); as ppu) {
-    <div class="hint">Scale: 1 {{ s.unit }} on the canvas ≈ {{ fmt(ppu) }} photo pixels</div>
-  }
+  <div class="hint">
+    Fine-tune the crop in the viewer: tap <b>Crop</b>, then pinch and drag the photo under the grid.
+    @if (cropped()) {
+      <button type="button" class="link" (click)="resetCrop()">Reset crop</button>
+    }
+  </div>
 </section>
 
 <section class="card">
@@ -76,7 +145,7 @@
     </div>
   </div>
   <div class="readout">
-    Each cell: <b>{{ fmt(cellW()) }} × {{ fmt(cellH()) }} {{ s.unit }}</b>
+    Each cell on the canvas: <b>{{ fmt(l.cellW) }} × {{ fmt(l.cellH) }} {{ s.unit }}</b>
   </div>
   <div class="row">
     <span class="lbl">Line colour</span>
@@ -86,14 +155,14 @@
                 (click)="patch('mainColor', c)" [attr.aria-label]="c"></button>
       }
       <label class="swatch custom" [style.background]="s.mainColor">
-        <input type="color" [ngModel]="s.mainColor" (ngModelChange)="patch('mainColor', $event)" />
+        <input type="color" [value]="s.mainColor" (input)="patch('mainColor', $any($event.target).value)" />
       </label>
     </div>
   </div>
   <label class="row slider">
     <span class="lbl">Thickness</span>
-    <input type="range" min="0.5" max="6" step="0.5" [ngModel]="s.mainWidth"
-           (ngModelChange)="num('mainWidth', $event, 0.5, 6)" />
+    <input type="range" min="0.5" max="6" step="0.5" [value]="s.mainWidth"
+           (input)="onNum('mainWidth', $event, 0.5, 6)" />
     <span class="val">{{ s.mainWidth }} px</span>
   </label>
 </section>
@@ -102,73 +171,78 @@
   <h2 class="with-toggle">
     Subdivision
     <label class="switch">
-      <input type="checkbox" [ngModel]="s.subEnabled" (ngModelChange)="patch('subEnabled', $event)" />
+      <input type="checkbox" [checked]="s.subEnabled" (change)="patch('subEnabled', $any($event.target).checked)" />
       <span></span>
     </label>
   </h2>
-  @if (s.subEnabled) {
-    <div class="row">
-      <span class="lbl">Split each cell</span>
-      <div class="seg">
-        <button type="button" [class.on]="s.subFactor === 2" (click)="patch('subFactor', 2)">2 × 2</button>
-        <button type="button" [class.on]="s.subFactor === 3" (click)="patch('subFactor', 3)">3 × 3</button>
-        <button type="button" [class.on]="s.subFactor === 4" (click)="patch('subFactor', 4)">4 × 4</button>
-      </div>
+  <div class="row">
+    <span class="lbl">Split each cell</span>
+    <div class="seg">
+      <button type="button" [class.on]="s.subFactor === 2" (click)="patch('subFactor', 2)">2 × 2</button>
+      <button type="button" [class.on]="s.subFactor === 3" (click)="patch('subFactor', 3)">3 × 3</button>
+      <button type="button" [class.on]="s.subFactor === 4" (click)="patch('subFactor', 4)">4 × 4</button>
     </div>
-    <div class="readout">
-      Sub-cell: <b>{{ fmt(subCellW()) }} × {{ fmt(subCellH()) }} {{ s.unit }}</b>
-      ({{ s.cols * s.subFactor }} × {{ s.rows * s.subFactor }} total)
+  </div>
+  <div class="readout">
+    Each sub-cell: <b>{{ fmt(l.subW) }} × {{ fmt(l.subH) }} {{ s.unit }}</b>
+    ({{ s.cols * s.subFactor }} × {{ s.rows * s.subFactor }} total)
+    @if (!s.subEnabled) {
+      <span class="dim">— shown only inside a focused cell while the switch is off</span>
+    }
+  </div>
+  <div class="row">
+    <span class="lbl">Line colour</span>
+    <div class="swatches">
+      @for (c of presets; track c) {
+        <button type="button" class="swatch" [style.background]="c" [class.on]="s.subColor === c"
+                (click)="patch('subColor', c)" [attr.aria-label]="c"></button>
+      }
+      <label class="swatch custom" [style.background]="s.subColor">
+        <input type="color" [value]="s.subColor" (input)="patch('subColor', $any($event.target).value)" />
+      </label>
     </div>
-    <div class="row">
-      <span class="lbl">Line colour</span>
-      <div class="swatches">
-        @for (c of presets; track c) {
-          <button type="button" class="swatch" [style.background]="c" [class.on]="s.subColor === c"
-                  (click)="patch('subColor', c)" [attr.aria-label]="c"></button>
-        }
-        <label class="swatch custom" [style.background]="s.subColor">
-          <input type="color" [ngModel]="s.subColor" (ngModelChange)="patch('subColor', $event)" />
-        </label>
-      </div>
-    </div>
-    <label class="row slider">
-      <span class="lbl">Thickness</span>
-      <input type="range" min="0.5" max="6" step="0.5" [ngModel]="s.subWidth"
-             (ngModelChange)="num('subWidth', $event, 0.5, 6)" />
-      <span class="val">{{ s.subWidth }} px</span>
-    </label>
-  }
+  </div>
+  <label class="row slider">
+    <span class="lbl">Thickness</span>
+    <input type="range" min="0.5" max="6" step="0.5" [value]="s.subWidth"
+           (input)="onNum('subWidth', $event, 0.5, 6)" />
+    <span class="val">{{ s.subWidth }} px</span>
+  </label>
 </section>
 
 <section class="card">
   <h2>Display</h2>
   <div class="toggle-row">
     <span>Show cell width × height</span>
-    <label class="switch"><input type="checkbox" [ngModel]="s.showDims" (ngModelChange)="patch('showDims', $event)" /><span></span></label>
+    <label class="switch"><input type="checkbox" [checked]="s.showDims" (change)="patch('showDims', $any($event.target).checked)" /><span></span></label>
+  </div>
+  <div class="toggle-row">
+    <span>Show margins around the picture</span>
+    <label class="switch"><input type="checkbox" [checked]="s.showMargins" (change)="patch('showMargins', $any($event.target).checked)" /><span></span></label>
   </div>
   <div class="toggle-row">
     <span>Row / column labels (A1, B2 …)</span>
-    <label class="switch"><input type="checkbox" [ngModel]="s.showLabels" (ngModelChange)="patch('showLabels', $event)" /><span></span></label>
+    <label class="switch"><input type="checkbox" [checked]="s.showLabels" (change)="patch('showLabels', $any($event.target).checked)" /><span></span></label>
   </div>
   <div class="toggle-row">
     <span>Diagonals in each cell</span>
-    <label class="switch"><input type="checkbox" [ngModel]="s.diagonals" (ngModelChange)="patch('diagonals', $event)" /><span></span></label>
+    <label class="switch"><input type="checkbox" [checked]="s.diagonals" (change)="patch('diagonals', $any($event.target).checked)" /><span></span></label>
   </div>
   <div class="toggle-row">
     <span>Black &amp; white (value study)</span>
-    <label class="switch"><input type="checkbox" [ngModel]="s.grayscale" (ngModelChange)="patch('grayscale', $event)" /><span></span></label>
+    <label class="switch"><input type="checkbox" [checked]="s.grayscale" (change)="patch('grayscale', $any($event.target).checked)" /><span></span></label>
   </div>
   <div class="toggle-row">
     <span>Mirror horizontally</span>
-    <label class="switch"><input type="checkbox" [ngModel]="s.flipH" (ngModelChange)="patch('flipH', $event)" /><span></span></label>
+    <label class="switch"><input type="checkbox" [checked]="s.flipH" (change)="patch('flipH', $any($event.target).checked)" /><span></span></label>
   </div>
   <div class="toggle-row">
     <span>Mirror vertically</span>
-    <label class="switch"><input type="checkbox" [ngModel]="s.flipV" (ngModelChange)="patch('flipV', $event)" /><span></span></label>
+    <label class="switch"><input type="checkbox" [checked]="s.flipV" (change)="patch('flipV', $any($event.target).checked)" /><span></span></label>
   </div>
   <div class="toggle-row">
-    <span>Dim the rest when a cell is focused</span>
-    <label class="switch"><input type="checkbox" [ngModel]="s.dimOthers" (ngModelChange)="patch('dimOthers', $event)" /><span></span></label>
+    <span>Dim the neighbours of a focused cell</span>
+    <label class="switch"><input type="checkbox" [checked]="s.dimOthers" (change)="patch('dimOthers', $any($event.target).checked)" /><span></span></label>
   </div>
 </section>
 
@@ -177,5 +251,5 @@
   <button type="button" class="btn" (click)="exportImage.emit()" [disabled]="!imageUrl()">
     Download photo with grid (PNG)
   </button>
-  <div class="hint">Full-resolution copy with the grid burned in — handy for printing.</div>
+  <div class="hint">Full-resolution copy with margins, crop and grid applied — handy for printing.</div>
 </section>
