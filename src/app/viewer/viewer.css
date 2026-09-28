@@ -67,7 +67,8 @@
 }
 
 .photo.gray {
-  filter: grayscale(1);
+  /* high-contrast value study */
+  filter: grayscale(1) contrast(1.4);
 }
 
 .grid {

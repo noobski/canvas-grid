@@ -2,6 +2,8 @@ export type Unit = 'cm' | 'in';
 export type FitMode = 'cover' | 'contain';
 
 export interface Settings {
+  /** settings schema version, for migrations */
+  v: number;
   canvasW: number;
   canvasH: number;
   unit: Unit;
@@ -34,13 +36,14 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  v: 2,
   canvasW: 40,
   canvasH: 30,
   unit: 'cm',
-  marginTop: 0,
-  marginRight: 0,
-  marginBottom: 0,
-  marginLeft: 0,
+  marginTop: 4,
+  marginRight: 4,
+  marginBottom: 4,
+  marginLeft: 4,
   showMargins: true,
   cols: 4,
   rows: 4,

@@ -12,7 +12,17 @@ export class StorageService {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (!raw) return { ...DEFAULT_SETTINGS };
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      const stored = JSON.parse(raw) as Partial<Settings>;
+      const s: Settings = { ...DEFAULT_SETTINGS, ...stored };
+      // v1 → v2: margins were introduced with a 0 default; now 4 cm all round
+      if (!stored.v || stored.v < 2) {
+        if (s.marginTop + s.marginRight + s.marginBottom + s.marginLeft === 0) {
+          const m = s.unit === 'in' ? 1.5 : 4;
+          s.marginTop = s.marginRight = s.marginBottom = s.marginLeft = m;
+        }
+        s.v = 2;
+      }
+      return s;
     } catch {
       return { ...DEFAULT_SETTINGS };
     }

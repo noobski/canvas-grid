@@ -20,6 +20,7 @@ interface Cell extends Rect {
 
 const MAX_ZOOM = 24;
 const FOCUS_PAD = 24; // px of breathing room around a focused cell
+const CHROME_TIMEOUT = 20000; // ms without a touch before the controls hide
 
 @Component({
   selector: 'app-viewer',
@@ -154,8 +155,10 @@ export class Viewer {
   private down: { pt: Pt; t: number; moved: boolean } | null = null;
   private lastTap = 0;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private chromeTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    this.touch();
     effect(() => {
       // drop the selection when the grid shape changes underneath it
       const s = this.settings();
@@ -191,7 +194,7 @@ export class Viewer {
     }
     if (ev.key === ' ') {
       ev.preventDefault();
-      this.chrome.update((v) => !v);
+      this.touch();
     }
     if (this.selected()) {
       if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') this.stepCell(1);
@@ -200,6 +203,17 @@ export class Viewer {
   }
 
   // ---- actions -----------------------------------------------------------------------
+  /** Any touch shows the controls; they fade out again after 20 s without one. */
+  touch(): void {
+    this.chrome.set(true);
+    if (this.chromeTimer) clearTimeout(this.chromeTimer);
+    this.chromeTimer = setTimeout(() => this.chrome.set(false), CHROME_TIMEOUT);
+  }
+
+  toggleBw(): void {
+    this.settings.update((s) => ({ ...s, grayscale: !s.grayscale }));
+  }
+
   toggleFullscreen(): void {
     if (document.fullscreenElement) {
       document.exitFullscreen?.();
@@ -281,6 +295,7 @@ export class Viewer {
 
   // ---- pointer handling (tap, pan, pinch) -----------------------------------------------
   onPointerDown(ev: PointerEvent): void {
+    this.touch();
     if ((ev.target as HTMLElement).closest('.chrome')) return;
     (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
     this.pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
@@ -373,13 +388,8 @@ export class Viewer {
     this.lastTap = now;
     if (this.focusMode() && !this.selected()) {
       const cell = this.cellAt(pt);
-      if (cell) {
-        this.select(cell);
-        this.chrome.set(true);
-      }
-      return;
+      if (cell) this.select(cell);
     }
-    this.chrome.update((v) => !v);
   }
 
   private zoomAt(pt: Pt, k: number): void {

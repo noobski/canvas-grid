@@ -115,7 +115,7 @@
   </div>
 }
 
-<div class="chrome top" [class.hidden]="!chrome()">
+<div class="chrome top" [class.hidden]="!chrome()" (pointerdown)="touch()">
   <button type="button" class="icon" (click)="close.emit()" aria-label="Back">
     <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
   </button>
@@ -128,7 +128,7 @@
   </button>
 </div>
 
-<div class="chrome bottom" [class.hidden]="!chrome()">
+<div class="chrome bottom" [class.hidden]="!chrome()" (pointerdown)="touch()">
   @if (sel) {
     <button type="button" class="pill" (click)="stepCell(-1)" aria-label="Previous cell">‹</button>
     <span class="pill static">{{ sel.label }}</span>
@@ -143,9 +143,11 @@
     </button>
     <button type="button" class="pill" [class.on]="focusMode()" (click)="toggleFocus()">Focus cell</button>
     <button type="button" class="pill" (click)="toggleCrop()">Crop</button>
+    <button type="button" class="pill" [class.on]="s.grayscale" (click)="toggleBw()">B&amp;W</button>
     @if (k > 1) {
       <button type="button" class="pill" (click)="resetZoom()">Reset zoom</button>
     }
+    <button type="button" class="pill" (click)="openSettings.emit()">Settings</button>
   }
   <span class="grow"></span>
   <span class="wake" [class.ok]="wake.active()" [title]="wake.method()">

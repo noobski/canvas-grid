@@ -123,7 +123,7 @@ export class App {
     ctx.translate(px.x + px.w / 2, px.y + px.h / 2);
     ctx.scale(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
     ctx.translate(s.cropX * px.w, s.cropY * px.h);
-    if (s.grayscale) ctx.filter = 'grayscale(1)';
+    if (s.grayscale) ctx.filter = 'grayscale(1) contrast(1.4)';
     ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
     ctx.restore();
 
